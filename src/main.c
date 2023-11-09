@@ -146,7 +146,6 @@ typedef struct {
 static void
 output_frame(struct wl_listener *listener, void *data)
 {
-	printf("Output is ready to commit a frame!\n");
 	Output *output = wl_container_of(listener, output, frame);
 	struct wlr_scene *scene = output->server->scene;
 	struct wlr_renderer *renderer = output->server->renderer;
@@ -154,9 +153,12 @@ output_frame(struct wl_listener *listener, void *data)
 	struct wlr_scene_output *scene_output = wlr_scene_get_scene_output(
 		scene, output->wlr_output);
 
+	if (!wlr_output_attach_render(output->wlr_output, NULL)) {
+		return;
+	}
+
 	int width, height;
 	wlr_output_effective_resolution(output->wlr_output, &width, &height);
-	printf("Effective resolution: %ix%i", width, height);
 	
 	// Do some OpenGL stuff
 	wlr_renderer_begin(renderer, width, height);
@@ -165,38 +167,13 @@ output_frame(struct wl_listener *listener, void *data)
 	float color[4] = {0.3, 0.3, 0.3, 1.0};
 	wlr_renderer_clear(renderer, color);
 
-	struct wl_resource *_surface;
-
-	/* wl_resource_for_each(_surface, &server->compositor->surfaces) {
-		struct wlr_surface *surface = wlr_surface_from_resource(_surface);
-		if (!wlr_surface_has_buffer(surface)) {
-			continue;
-		}
-
-		struct wlr_box render_box = {
-			.x = 20, .y = 20,
-			.width = surface->current->width,
-			.height = surface->current->height
-		};
-
-		float matrix[16];
-
-		wlr_matrix_project_box(&matrix, &render_box,
-				surface->current->transform,
-				0, &output->wlr_output->transform_matrix);
-
-	} */
-
 	wlr_renderer_end(renderer);
-	// wlr_output_swap_buffers(wlr_output, NULL, NULL);
-
-	/* Render the scene if needed and commit the output */
-	wlr_scene_output_commit(scene_output);
-
+	
+	// Let all clients know that a frame got rendered.
 	struct timespec now;
 	clock_gettime(CLOCK_MONOTONIC, &now);
 	wlr_scene_output_send_frame_done(scene_output, &now);
-	wlr_output_commit(output->wlr_output);
+	wlr_output_commit(output->wlr_output); 
 }
 
 static void
