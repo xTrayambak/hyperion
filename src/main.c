@@ -144,12 +144,13 @@ static void output_frame(struct wl_listener *listener, void *data) {
 	struct hyperion_output *output = wl_container_of(listener, output, frame);
 	struct wlr_scene *scene = output->server->scene;
 	struct wlr_renderer *renderer = output->server->renderer;
-
+	
 	struct wlr_scene_output *scene_output = wlr_scene_get_scene_output(
 		scene, output->wlr_output);
 
 	int width, height;
 	wlr_output_effective_resolution(output->wlr_output, &width, &height);
+	printf("Effective resolution: %ix%i", width, height);
 	
 	// Do some OpenGL stuff
 	wlr_renderer_begin(renderer, width, height);
@@ -233,18 +234,16 @@ static void server_new_output(struct wl_listener *listener, void *data) {
 }
 
 int main() {
+	wlr_log_init(WLR_DEBUG, NULL);
 	struct hyperion_server server;
 	
-	printf("Creating Wayland display\n");
+	wlr_log(WLR_INFO, "Creating Wayland display\n");
 	server.wl_display = wl_display_create();
 
-	printf("Creating wlroots backend\n");
 	server.backend = wlr_backend_autocreate(server.wl_display);
 	
-	printf("Creating wlroots renderer\n");
 	server.renderer = wlr_renderer_autocreate(server.backend);
 
-	printf("Initializing wlroots renderer\n");
 	wlr_renderer_init_wl_display(server.renderer, server.wl_display);
 	
 	printf("Creating wlroots allocator\n");
@@ -280,6 +279,7 @@ int main() {
 	 * master, etc */
 	printf("Starting the wlroots backend\n");
 	if (!wlr_backend_start(server.backend)) {
+		printf("Couldn't start wlroots backend! Aborting.\n");
 		wlr_backend_destroy(server.backend);
 		wl_display_destroy(server.wl_display);
 		return 1;
@@ -290,7 +290,7 @@ int main() {
 	printf("Running Wayland display\n");
 	wl_display_run(server.wl_display);
 	
-	printf("Initializing shm\n");
+	printf("Initializing SHM\n");
 	wl_display_init_shm(server.wl_display);
 
 	printf("Creating wlroots idle manager\n");
