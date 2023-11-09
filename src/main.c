@@ -160,7 +160,7 @@ static void output_frame(struct wl_listener *listener, void *data) {
 
 	struct wl_resource *_surface;
 
-	wl_resource_for_each(_surface, &server->compositor->surfaces) {
+	/* wl_resource_for_each(_surface, &server->compositor->surfaces) {
 		struct wlr_surface *surface = wlr_surface_from_resource(_surface);
 		if (!wlr_surface_has_buffer(surface)) {
 			continue;
@@ -176,10 +176,11 @@ static void output_frame(struct wl_listener *listener, void *data) {
 
 		wlr_matrix_project_box(&matrix, &render_box,
 				surface->current->transform,
-				0, &output->transform_matrix);
+				0, &output->wlr_output->transform_matrix);
 
-	}
+	} */
 
+	wlr_renderer_end(renderer);
 	// wlr_output_swap_buffers(wlr_output, NULL, NULL);
 
 	/* Render the scene if needed and commit the output */
@@ -188,6 +189,7 @@ static void output_frame(struct wl_listener *listener, void *data) {
 	struct timespec now;
 	clock_gettime(CLOCK_MONOTONIC, &now);
 	wlr_scene_output_send_frame_done(scene_output, &now);
+	wlr_output_commit(output->wlr_output);
 }
 
 static void server_new_output(struct wl_listener *listener, void *data) {
