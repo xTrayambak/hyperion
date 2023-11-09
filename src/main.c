@@ -1,4 +1,5 @@
 #define _POSIX_C_SOURCE 200112L
+
 #include <assert.h>
 #include <getopt.h>
 #include <stdbool.h>
@@ -6,6 +7,7 @@
 #include <stdio.h>
 #include <time.h>
 #include <unistd.h>
+
 #include <wayland-server-core.h>
 #include <wlr/backend.h>
 #include <wlr/render/allocator.h>
@@ -26,21 +28,23 @@
 #include <wlr/types/wlr_xdg_shell.h>
 #include <wlr/types/wlr_idle.h>
 #include <wlr/util/log.h>
+
 #include <linux/input-event-codes.h>
 #include <xkbcommon/xkbcommon.h>
 #include <pango/pangocairo.h>
 #include <drm_fourcc.h>
+
 #include "xdg-shell-protocol.h"
 
 /* For brevity's sake, struct members are annotated where they are used. */
-enum hyperion_cursor_mode {
+typedef enum {
 	HYPERION_CURSOR_PASSTHROUGH,
 	HYPERION_CURSOR_MOVE,
 	HYPERION_CURSOR_RESIZE,
 	HYPERION_CURSOR_PRESSED,
-};
+} CursorMode;
 
-struct hyperion_server {
+typedef struct {
 	struct wl_display *wl_display;
 	struct wlr_backend *backend;
 	struct wlr_renderer *renderer;
@@ -62,7 +66,7 @@ struct hyperion_server {
 	struct wl_listener request_cursor;
 	struct wl_listener request_set_selection;
 	struct wl_list keyboards;
-	enum hyperion_cursor_mode cursor_mode;
+	CursorMode cursor_mode;
 	struct hyperion_view *grabbed_view;
 	double grab_x, grab_y;
 	struct wlr_box grab_geobox;
@@ -74,26 +78,26 @@ struct hyperion_server {
 	struct wlr_output_layout *output_layout;
 	struct wl_list outputs;
 	struct wl_listener new_output;
-};
+} Server;
 
-struct hyperion_output {
+typedef struct {
+	Server *server;
 	struct wl_list link;
-	struct hyperion_server *server;
 	struct wlr_output *wlr_output;
 	struct wl_listener frame;
 	struct wlr_scene_rect *background;
-};
+} Output;
 
-struct previous_geo {
+typedef struct {
 	int x, y, width, height;
-};
+} Rectangle;
 
-struct title {
+typedef struct {
 	struct wlr_scene_buffer *buffer;
 	int original_width, current_width;
-};
+} Title;
 
-struct hyperion_view {
+typedef struct {
 	struct wl_list link;
 	struct hyperion_server *server;
 	struct wlr_xdg_surface *xdg_surface;
@@ -101,7 +105,7 @@ struct hyperion_view {
 	struct wlr_scene_rect *border;
 	struct wlr_scene_rect *titlebar;
 	struct wlr_scene_rect *close_button;
-	struct title title;
+	Title title;
 	struct wl_listener map;
 	struct wl_listener unmap;
 	struct wl_listener destroy;
@@ -110,38 +114,40 @@ struct hyperion_view {
 	struct wl_listener request_resize;
 	struct wl_listener request_maximize;
 	struct wl_listener set_title;
-	struct previous_geo saved_geometry;
+	Rectangle saved_geometry;
 	int x, y;
-};
+} View;
 
-struct hyperion_keyboard {
+typedef struct {
 	struct wl_list link;
-	struct hyperion_server *server;
+	Server *server;
 	struct wlr_input_device *device;
 
 	struct wl_listener modifiers;
 	struct wl_listener key;
-};
+} Keyboard;
 
-enum hyperion_node_type {
+typedef enum {
 	NONE,
 	TITLEBAR,
 	BORDER,
 	CLOSE_BUTTON,
 	MENU,
-};
+} NodeType;
 
-struct hyperion_node_details {
-	enum hyperion_node_type type;
+typedef struct {
+	NodeType type;
 	void *owner;
-	struct hyperion_view *view;
+	View *view;
 	int index;
 	struct wl_listener destroy;
-};
+} NodeInfo;
 
-static void output_frame(struct wl_listener *listener, void *data) {
+static void
+output_frame(struct wl_listener *listener, void *data)
+{
 	printf("Output is ready to commit a frame!\n");
-	struct hyperion_output *output = wl_container_of(listener, output, frame);
+	Output *output = wl_container_of(listener, output, frame);
 	struct wlr_scene *scene = output->server->scene;
 	struct wlr_renderer *renderer = output->server->renderer;
 	
@@ -193,10 +199,12 @@ static void output_frame(struct wl_listener *listener, void *data) {
 	wlr_output_commit(output->wlr_output);
 }
 
-static void server_new_output(struct wl_listener *listener, void *data) {
+static void
+server_new_output(struct wl_listener *listener, void *data)
+{
 	printf("New output attached!\n");
 
-	struct hyperion_server *server = wl_container_of(listener, server, new_output);
+	Server *server = wl_container_of(listener, server, new_output);
 	struct wlr_output *wlr_output = data;
 	
 	printf("Initializing renderer on new output.\n");
@@ -213,7 +221,7 @@ static void server_new_output(struct wl_listener *listener, void *data) {
 	}
 	
 	printf("Allocating hyperion_output\n");
-	struct hyperion_output *output = calloc(1, sizeof(struct hyperion_output));
+	Output *output = calloc(1, sizeof(Output));
 
 	output->wlr_output = wlr_output;
 	output->server = server;
@@ -235,7 +243,7 @@ static void server_new_output(struct wl_listener *listener, void *data) {
 
 int main() {
 	wlr_log_init(WLR_DEBUG, NULL);
-	struct hyperion_server server;
+	Server server;
 	
 	wlr_log(WLR_INFO, "Creating Wayland display\n");
 	server.wl_display = wl_display_create();
