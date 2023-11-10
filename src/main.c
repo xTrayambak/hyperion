@@ -143,10 +143,37 @@ typedef struct {
 	struct wl_listener destroy;
 } NodeInfo;
 
+void
+panic(char *msg) {
+	printf("Hyperion Panic: %s\n", msg);
+	abort();
+}
+
+void
+button_press(struct wl_listener *listener, void *data)
+{
+	struct wlr_pointer_button_event *event = data;
+	struct wlr_keyboard *keyboard;
+
+	uint32_t mods;
+
+	switch(event->state) {
+	case WLR_BUTTON_PRESSED:
+		printf("Button pressed!\n");
+	case WLR_BUTTON_RELEASED:
+		printf("Button released!\n");
+	}
+}
+
+/*
+ * This function is triggered whenever the compositor is ready to draw a frame
+ * (generally at a rate of 60Hz)
+*/
 static void
 output_frame(struct wl_listener *listener, void *data)
 {
 	Output *output = wl_container_of(listener, output, frame);
+	Server *server = output->server;
 	struct wlr_scene *scene = output->server->scene;
 	struct wlr_renderer *renderer = output->server->renderer;
 	
@@ -166,6 +193,8 @@ output_frame(struct wl_listener *listener, void *data)
 	// Clear the screen before doing anything
 	float color[4] = {0.3, 0.3, 0.3, 1.0};
 	wlr_renderer_clear(renderer, color);
+
+	wlr_xcursor_manager_set_cursor_image(server->cursor_mgr, "fleur", server->cursor);
 
 	wlr_renderer_end(renderer);
 	
@@ -219,6 +248,10 @@ server_new_output(struct wl_listener *listener, void *data)
 }
 
 int main() {
+	if (!getenv("XDG_RUNTIME_DIR")) {
+		panic("XDG_RUNTIME_DIR not set!");
+	}
+
 	wlr_log_init(WLR_DEBUG, NULL);
 	Server server;
 	
@@ -248,6 +281,19 @@ int main() {
 	wl_list_init(&server.outputs);
 	server.new_output.notify = server_new_output;
 	wl_signal_add(&server.backend->events.new_output, &server.new_output);
+
+	printf("Initializing mouse/cursor\n");
+	/* Initialize wlroots cursor, which is an image provided by wlroots to track the..
+	 * y'know... cursor. Hook up a few events as well. 
+	*/
+	server.cursor = wlr_cursor_create();
+	wlr_cursor_attach_output_layout(server.cursor, server.output_layout);
+
+	server.cursor_mgr = wlr_xcursor_manager_create(NULL, 24);
+	setenv("XCURSOR_SIZE", "24", 1);
+
+	server.cursor_button.notify = button_press;
+	wl_signal_add(&server.cursor->events.button, &server.cursor_button);
 	
 	printf("Creating wlroots scene\n");
 	server.scene = wlr_scene_create();
@@ -257,17 +303,16 @@ int main() {
 	const char *socket = wl_display_add_socket_auto(server.wl_display);
 	if (!socket) {
 		wlr_backend_destroy(server.backend);
-		return 1;
+		panic("Failed to add socket to Wayland display!");
 	}
 
 	/* Start the backend. This will enumerate outputs and inputs, become the DRM
 	 * master, etc */
 	printf("Starting the wlroots backend\n");
 	if (!wlr_backend_start(server.backend)) {
-		printf("Couldn't start wlroots backend! Aborting.\n");
 		wlr_backend_destroy(server.backend);
 		wl_display_destroy(server.wl_display);
-		return 1;
+		panic("Failed to start wlroots backend!");
 	}
 
 	printf("Running compositor on %s\n", socket);
