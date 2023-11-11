@@ -1,6 +1,7 @@
 #define _POSIX_C_SOURCE 200112L
 
 #include <assert.h>
+#include <err.h>
 #include <getopt.h>
 #include <stdbool.h>
 #include <stdlib.h>
@@ -12,12 +13,6 @@
 #include <xkbcommon/xkbcommon.h>
 #include <pango/pangocairo.h>
 #include <drm_fourcc.h>
-
-void
-panic(char *msg) {
-	printf("Hyperion Panic: %s\n", msg);
-	abort();
-}
 
 #include "cursor.h"
 #include "server.h"
@@ -112,7 +107,7 @@ main(int argc, char *argv[]) {
 	const char *socket;
 
 	if (!getenv("XDG_RUNTIME_DIR")) {
-		panic("XDG_RUNTIME_DIR not set!");
+		errx(1, "XDG_RUNTIME_DIR not set");
 	}
 
 	wlr_log_init(WLR_DEBUG, NULL);
@@ -155,7 +150,7 @@ main(int argc, char *argv[]) {
 	socket = wl_display_add_socket_auto(server.wl_display);
 	if (!socket) {
 		wlr_backend_destroy(server.backend);
-		panic("Failed to add socket to Wayland display!");
+		errx(1, "failed to add socket to Wayland display");
 	}
 
 	/* Start the backend. This will enumerate outputs and inputs, become the DRM
@@ -164,7 +159,7 @@ main(int argc, char *argv[]) {
 	if (!wlr_backend_start(server.backend)) {
 		wlr_backend_destroy(server.backend);
 		wl_display_destroy(server.wl_display);
-		panic("Failed to start wlroots backend!");
+		errx(1, "failed to start wlroots backend");
 	}
 
 	printf("Running compositor on %s\n", socket);
