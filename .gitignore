@@ -1,8 +1,5 @@
-<<<<<<< HEAD
 hyperion
 *.o
-=======
-./hyperion
->>>>>>> f031ca0 ((fix) some stuff)
 xdg-shell-protocol.c
 xdg-shell-protocol.h
+Makefile
