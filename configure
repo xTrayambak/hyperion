@@ -1,0 +1,161 @@
+#!/usr/bin/env sh
+# simple and flexible configure script for people who don't like to waste time
+# written by jtbx, licensed to the public domain
+
+set -e
+
+include=include
+
+mkf=Makefile
+objs='main.o cursor.o'
+srcdir='src'
+pkgs='wlroots wayland-server libdrm pangocairo pixman-1 xkbcommon'
+makefile='
+INCLUDE   = '"$include"'
+
+CC      = ${_CC}
+CFLAGS  = -pedantic -Wall -Wextra -I${INCLUDE} -DWLR_USE_UNSTABLE ${_CFLAGS}
+LDFLAGS = ${_LDFLAGS}
+OBJS    = ${_OBJS}
+
+all: hyperion
+
+hyperion: ${OBJS}
+	${CC} ${CFLAGS} -o $@ ${OBJS} ${LDFLAGS}
+
+.SUFFIXES: .o
+.c.o:
+	${CC} ${CFLAGS} -c -o $@ $<
+
+main.o:
+
+clean:
+	rm -f hyperion ${OBJS}
+
+.PHONY: all clean
+'
+
+# utility functions
+
+present () {
+	command -v "$1" 1>/dev/null 2>/dev/null
+}
+using () {
+	>&2 printf "using $1\n"
+}
+error () {
+	>&2 printf "%s: %s\n" "$(basename $0)" "$1"
+	exit 1
+}
+liberror () {
+	error "failed to find libraries"
+}
+
+# generators
+
+## C compiler
+gen_CC () {
+	if ! [ -z "$cc" ]; then
+		using "$cc"
+		return 0
+	fi
+	if present clang; then
+		cc=clang
+	elif present cc; then
+		cc=cc
+	elif present gcc; then
+		cc=gcc
+	else
+		error "C compiler not found; please install one, or provide -c (see -h)"
+	fi
+
+	using "$cc"
+}
+
+## flags used in the compilation step
+gen_CFLAGS () {
+	if [ -z "$debug" ]; then
+		cflags="-O2"
+	else
+		cflags="-O0 -g -DDEBUG"
+	fi
+	
+	cflags="$cflags $(pkg-config --cflags $pkgs || liberror)"
+
+	for flag in $cflags; do
+		using "$flag"
+	done
+}
+## flags used in the linking step
+gen_LDFLAGS () {
+	ldflags="$(pkg-config --libs $pkgs || liberror)"
+
+	for flag in $ldflags; do
+		using "$flag"
+	done
+}
+
+# command line interface
+
+while getopts c:dhr ch; do
+	case "$ch" in
+		c) cc="$OPTARG" ;;
+		d) debug=1 ;;
+		r) unset debug ;;
+		h)
+			cat <<EOF
+configure: create an optimised makefile for the current environment
+
+options:
+  -c: force use of a particular compiler
+  -d: build in debug mode, with debug symbols and ifdefs enabled
+  -r: build in release mode with optimisation flags enabled (default)
+  -h: show this help message
+EOF
+			exit 0
+			;;
+		?) exit 1 ;;
+		:) exit 1 ;;
+	esac
+done
+
+# creating the makefile
+
+u_cflags="$cflags"
+unset cflags
+
+gen_CC
+gen_CFLAGS
+gen_LDFLAGS
+
+rm -f "$mkf"
+printf '# begin generated definitions' >>"$mkf"
+printf '
+_CC = %s
+_CFLAGS =%s
+_LDFLAGS = %s
+'              \
+	"$cc"      \
+	"$u_cflags $cflags" \
+	"$ldflags" \
+		>>"$mkf"
+## generate obj list
+printf '_OBJS =' >>"$mkf"
+for obj in $objs; do
+	printf " %s/%s" "$srcdir" "$obj" >>"$mkf"
+done
+printf '\n' >>"$mkf"
+printf '# end generated definitions\n' >>"$mkf"
+
+printf '%s' "$makefile" >>"$mkf"
+
+# wayland-scanner generates C headers and rigging for Wayland protocols,
+# which are specified in XML. wlroots requires you to rig these up to
+# your build system yourself and provide them in the include path.
+wl_protocols="$(pkg-config --variable=pkgdatadir wayland-protocols || liberror)"
+wl_scanner="$(pkg-config --variable=wayland_scanner wayland-scanner || liberror)"
+
+"$wl_scanner" server-header \
+	"$wl_protocols"/stable/xdg-shell/xdg-shell.xml "$include"/xdg-shell-protocol.h
+"$wl_scanner" private-code \
+	"$wl_protocols"/stable/xdg-shell/xdg-shell.xml "$include"/xdg-shell-protocol.c
