@@ -1,6 +1,6 @@
 /*
- * Convenience header that provides all
- * necessary Wayland headers in one #include.
+ * Convenience header that provides all necessary
+ * Wayland/related headers in one #include.
  */
 
 #include <wayland-server-core.h>
@@ -23,5 +23,10 @@
 #include <wlr/types/wlr_xdg_shell.h>
 #include <wlr/types/wlr_idle.h>
 #include <wlr/util/log.h>
+
+#include <linux/input-event-codes.h>
+#include <xkbcommon/xkbcommon.h>
+#include <pango/pangocairo.h>
+#include <drm_fourcc.h>
 
 #include "xdg-shell-protocol.h"
