@@ -8,140 +8,10 @@
 #include <time.h>
 #include <unistd.h>
 
-#include <wayland-server-core.h>
-#include <wlr/backend.h>
-#include <wlr/render/allocator.h>
-#include <wlr/render/wlr_renderer.h>
-#include <wlr/types/wlr_cursor.h>
-#include <wlr/types/wlr_compositor.h>
-#include <wlr/types/wlr_data_device.h>
-#include <wlr/types/wlr_input_device.h>
-#include <wlr/types/wlr_keyboard.h>
-#include <wlr/types/wlr_output.h>
-#include <wlr/types/wlr_output_layout.h>
-#include <wlr/types/wlr_pointer.h>
-#include <wlr/types/wlr_scene.h>
-#include <wlr/types/wlr_seat.h>
-#include <wlr/types/wlr_server_decoration.h>
-#include <wlr/types/wlr_xcursor_manager.h>
-#include <wlr/types/wlr_xdg_decoration_v1.h>
-#include <wlr/types/wlr_xdg_shell.h>
-#include <wlr/types/wlr_idle.h>
-#include <wlr/util/log.h>
-
 #include <linux/input-event-codes.h>
 #include <xkbcommon/xkbcommon.h>
 #include <pango/pangocairo.h>
 #include <drm_fourcc.h>
-
-#include "xdg-shell-protocol.h"
-
-/* For brevity's sake, struct members are annotated where they are used. */
-typedef enum {
-	HYPERION_CURSOR_PASSTHROUGH,
-	HYPERION_CURSOR_MOVE,
-	HYPERION_CURSOR_RESIZE,
-	HYPERION_CURSOR_PRESSED,
-} CursorMode;
-
-typedef struct {
-	struct wl_display *wl_display;
-	struct wlr_backend *backend;
-	struct wlr_renderer *renderer;
-	struct wlr_allocator *allocator;
-	struct wlr_scene *scene;
-
-	struct wlr_xdg_shell *xdg_shell;
-
-	struct wlr_cursor *cursor;
-	struct wlr_xcursor_manager *cursor_mgr;
-	struct wl_listener cursor_motion;
-	struct wl_listener cursor_motion_absolute;
-	struct wl_listener cursor_button;
-	struct wl_listener cursor_axis;
-	struct wl_listener cursor_frame;
-
-	struct wlr_seat *seat;
-	struct wl_listener new_input;
-	struct wl_listener request_cursor;
-	struct wl_listener request_set_selection;
-	struct wl_list keyboards;
-	CursorMode cursor_mode;
-	struct hyperion_view *grabbed_view;
-	double grab_x, grab_y;
-	struct wlr_box grab_geobox;
-	uint32_t resize_edges;
-	struct wlr_scene_tree *view_menu;
-	struct hyperion_view *opened_menu_view;
-	struct wlr_scene_rect *selected_menu_item;
-
-	struct wlr_output_layout *output_layout;
-	struct wl_list outputs;
-	struct wl_listener new_output;
-} Server;
-
-typedef struct {
-	Server *server;
-	struct wl_list link;
-	struct wlr_output *wlr_output;
-	struct wl_listener frame;
-	struct wlr_scene_rect *background;
-} Output;
-
-typedef struct {
-	int x, y, width, height;
-} Rectangle;
-
-typedef struct {
-	struct wlr_scene_buffer *buffer;
-	int original_width, current_width;
-} Title;
-
-typedef struct {
-	struct wl_list link;
-	struct hyperion_server *server;
-	struct wlr_xdg_surface *xdg_surface;
-	struct wlr_scene_node *scene_node;
-	struct wlr_scene_rect *border;
-	struct wlr_scene_rect *titlebar;
-	struct wlr_scene_rect *close_button;
-	Title title;
-	struct wl_listener map;
-	struct wl_listener unmap;
-	struct wl_listener destroy;
-	struct wl_listener commit;
-	struct wl_listener request_move;
-	struct wl_listener request_resize;
-	struct wl_listener request_maximize;
-	struct wl_listener set_title;
-	Rectangle saved_geometry;
-	int x, y;
-} View;
-
-typedef struct {
-	struct wl_list link;
-	Server *server;
-	struct wlr_input_device *device;
-
-	struct wl_listener modifiers;
-	struct wl_listener key;
-} Keyboard;
-
-typedef enum {
-	NONE,
-	TITLEBAR,
-	BORDER,
-	CLOSE_BUTTON,
-	MENU,
-} NodeType;
-
-typedef struct {
-	NodeType type;
-	void *owner;
-	View *view;
-	int index;
-	struct wl_listener destroy;
-} NodeInfo;
 
 void
 panic(char *msg) {
@@ -149,21 +19,10 @@ panic(char *msg) {
 	abort();
 }
 
-void
-button_press(struct wl_listener *listener, void *data)
-{
-	struct wlr_pointer_button_event *event = data;
-	struct wlr_keyboard *keyboard;
-
-	uint32_t mods;
-
-	switch(event->state) {
-	case WLR_BUTTON_PRESSED:
-		printf("Button pressed!\n");
-	case WLR_BUTTON_RELEASED:
-		printf("Button released!\n");
-	}
-}
+#include "cursor.h"
+#include "server.h"
+#include "util.h"
+#include "wayland.h"
 
 /*
  * This function is triggered whenever the compositor is ready to draw a frame
@@ -247,13 +106,16 @@ server_new_output(struct wl_listener *listener, void *data)
 	wlr_output_layout_add_auto(server->output_layout, wlr_output);
 }
 
-int main() {
+int
+main(int argc, char *argv[]) {
+	Server server;
+	const char *socket;
+
 	if (!getenv("XDG_RUNTIME_DIR")) {
 		panic("XDG_RUNTIME_DIR not set!");
 	}
 
 	wlr_log_init(WLR_DEBUG, NULL);
-	Server server;
 	
 	wlr_log(WLR_INFO, "Creating Wayland display\n");
 	server.wl_display = wl_display_create();
@@ -273,7 +135,7 @@ int main() {
 	wlr_data_device_manager_create(server.wl_display);
 
 	server.xdg_shell = wlr_xdg_shell_create(server.wl_display, 0);
-	
+
 	printf("Creating wlroots output layout\n");
 	server.output_layout = wlr_output_layout_create();
 	
@@ -283,24 +145,14 @@ int main() {
 	wl_signal_add(&server.backend->events.new_output, &server.new_output);
 
 	printf("Initializing mouse/cursor\n");
-	/* Initialize wlroots cursor, which is an image provided by wlroots to track the..
-	 * y'know... cursor. Hook up a few events as well. 
-	*/
-	server.cursor = wlr_cursor_create();
-	wlr_cursor_attach_output_layout(server.cursor, server.output_layout);
+	cursor_init(&server);
 
-	server.cursor_mgr = wlr_xcursor_manager_create(NULL, 24);
-	setenv("XCURSOR_SIZE", "24", 1);
-
-	server.cursor_button.notify = button_press;
-	wl_signal_add(&server.cursor->events.button, &server.cursor_button);
-	
 	printf("Creating wlroots scene\n");
 	server.scene = wlr_scene_create();
 	wlr_scene_attach_output_layout(server.scene, server.output_layout);
 	
 	printf("Adding socket to Wayland display\n");
-	const char *socket = wl_display_add_socket_auto(server.wl_display);
+	socket = wl_display_add_socket_auto(server.wl_display);
 	if (!socket) {
 		wlr_backend_destroy(server.backend);
 		panic("Failed to add socket to Wayland display!");
