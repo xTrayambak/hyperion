@@ -18,9 +18,9 @@ CFLAGS  = -pedantic -Wall -Wextra -I${INCLUDE} -DWLR_USE_UNSTABLE ${_CFLAGS}
 LDFLAGS = ${_LDFLAGS}
 OBJS    = ${_OBJS}
 
-all: hyperion
+all: scowl
 
-hyperion: ${OBJS}
+scowl: ${OBJS}
 	${CC} ${CFLAGS} -o $@ ${OBJS} ${LDFLAGS}
 
 .SUFFIXES: .o
@@ -30,7 +30,7 @@ hyperion: ${OBJS}
 main.o:
 
 clean:
-	rm -f hyperion ${OBJS}
+	rm -f scowl ${OBJS}
 
 .PHONY: all clean
 '
@@ -155,6 +155,7 @@ printf '%s' "$makefile" >>"$mkf"
 wl_protocols="$(pkg-config --variable=pkgdatadir wayland-protocols || liberror)"
 wl_scanner="$(pkg-config --variable=wayland_scanner wayland-scanner || liberror)"
 
+mkdir -p include
 "$wl_scanner" server-header \
 	"$wl_protocols"/stable/xdg-shell/xdg-shell.xml "$include"/xdg-shell-protocol.h
 "$wl_scanner" private-code \

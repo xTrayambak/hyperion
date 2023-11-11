@@ -62,16 +62,16 @@ output_frame(struct wl_listener *listener, void *data)
 static void
 server_new_output(struct wl_listener *listener, void *data)
 {
-	printf("New output attached!\n");
+	/* new output has been attached */
 
 	Server *server = wl_container_of(listener, server, new_output);
 	struct wlr_output *wlr_output = data;
 	
-	printf("Initializing renderer on new output.\n");
+	/* initialize renderer on new output */
 	wlr_output_init_render(wlr_output, server->allocator, server->renderer);
 	
 	if (!wl_list_empty(&wlr_output->modes)) {
-		printf("Enabling output and setting up modes.\n");
+		/* enable output and set up modes */
 		struct wlr_output_mode *mode = wlr_output_preferred_mode(wlr_output);
 		wlr_output_set_mode(wlr_output, mode);
 		wlr_output_enable(wlr_output, true);
@@ -80,24 +80,24 @@ server_new_output(struct wl_listener *listener, void *data)
 		}
 	}
 	
-	printf("Allocating hyperion_output\n");
 	Output *output = calloc(1, sizeof(Output));
 
 	output->wlr_output = wlr_output;
 	output->server = server;
 
-	printf("Attaching listener to the frame notify event.\n");
+	/* attach listener to the frame notify event */
 	output->frame.notify = output_frame;
 	wl_signal_add(&wlr_output->events.frame, &output->frame);
 	wl_list_insert(&server->outputs, &output->link);
 
-	/* printf("Creating background for wlroots scene.\n");
+	/* create background for wlroots scene */
+	/*
 	output->background = wlr_scene_rect_create(
 		&server->scene->tree,
 		output->wlr_output->width, output->wlr_output->height,
-		NULL); */
+		NULL);
+	*/
 	
-	printf("Setting wlroots output layout to auto.\n");
 	wlr_output_layout_add_auto(server->output_layout, wlr_output);
 }
 
@@ -121,59 +121,49 @@ main(int argc, char *argv[]) {
 
 	wlr_renderer_init_wl_display(server.renderer, server.wl_display);
 	
-	printf("Creating wlroots allocator\n");
+	/* create wlroots allocator */
 	server.allocator = wlr_allocator_autocreate(server.backend,
 		server.renderer);
 	
-	printf("Creating wlroots compositor and data device manager\n");
+	/* create wlroots compositor and data device manager */
 	wlr_compositor_create(server.wl_display, server.renderer);
 	wlr_data_device_manager_create(server.wl_display);
 
 	server.xdg_shell = wlr_xdg_shell_create(server.wl_display, 0);
 
-	printf("Creating wlroots output layout\n");
+	/* create wlroots output layout */
 	server.output_layout = wlr_output_layout_create();
 	
-	printf("Initializing inputs list\n");
+	/* initialize inputs list */
 	wl_list_init(&server.outputs);
 	server.new_output.notify = server_new_output;
 	wl_signal_add(&server.backend->events.new_output, &server.new_output);
 
-	printf("Initializing mouse/cursor\n");
+	/* initialize mouse/cursor */
 	cursor_init(&server);
 
-	printf("Creating wlroots scene\n");
+	/* create wlroots scene */
 	server.scene = wlr_scene_create();
 	wlr_scene_attach_output_layout(server.scene, server.output_layout);
 	
-	printf("Adding socket to Wayland display\n");
+	/* add socket to Wayland display */
 	socket = wl_display_add_socket_auto(server.wl_display);
 	if (!socket) {
 		wlr_backend_destroy(server.backend);
 		errx(1, "failed to add socket to Wayland display");
 	}
 
-	/* Start the backend. This will enumerate outputs and inputs, become the DRM
-	 * master, etc */
-	printf("Starting the wlroots backend\n");
+	/* Start the backend. This will enumerate outputs and inputs,
+	 * become the DRM master, etc */
 	if (!wlr_backend_start(server.backend)) {
 		wlr_backend_destroy(server.backend);
 		wl_display_destroy(server.wl_display);
 		errx(1, "failed to start wlroots backend");
 	}
 
-	printf("Running compositor on %s\n", socket);
-	
-	printf("Running Wayland display\n");
 	wl_display_run(server.wl_display);
-	
-	printf("Initializing SHM\n");
 	wl_display_init_shm(server.wl_display);
-
-	printf("Creating wlroots idle manager\n");
 	wlr_idle_create(server.wl_display);
-
-	printf("Destroying Wayland display\n");
 	wl_display_destroy_clients(server.wl_display);
 	wl_display_destroy(server.wl_display);
 	return 0;
