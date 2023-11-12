@@ -4,17 +4,18 @@
 
 set -e
 
-include=include
-
 mkf=Makefile
 objs='main.o cursor.o'
 srcdir='src'
-pkgs='wlroots wayland-server libdrm pangocairo pixman-1 xkbcommon'
+include='include'
+objs='main.o cursor.o server.o util.o'
+pkgs='wlroots wayland-server libdrm libsystemd pangocairo pixman-1 xkbcommon'
+cflags="-pedantic -Wall -Wextra -I$include -DWLR_USE_UNSTABLE"
 makefile='
 INCLUDE   = '"$include"'
 
 CC      = ${_CC}
-CFLAGS  = -pedantic -Wall -Wextra -I${INCLUDE} -DWLR_USE_UNSTABLE ${_CFLAGS}
+CFLAGS  = ${_CFLAGS}
 LDFLAGS = ${_LDFLAGS}
 OBJS    = ${_OBJS}
 
@@ -160,3 +161,12 @@ mkdir -p include
 	"$wl_protocols"/stable/xdg-shell/xdg-shell.xml "$include"/xdg-shell-protocol.h
 "$wl_scanner" private-code \
 	"$wl_protocols"/stable/xdg-shell/xdg-shell.xml "$include"/xdg-shell-protocol.c
+
+# bear generates a compile_commands.json file that is consumed by clangd,
+# the clang LSP server. Necessary for LSP.
+
+present bear || exit 0
+for obj in $objs; do
+	bear --append -- "$cc" $u_cflags $cflags -c -o "$srcdir"/"$obj" "$(printf '%s/%s' "$srcdir" "$obj" | sed 's/\.o$/.c/g')" \
+		 || error "failed to construct compile_commands.json"
+done
