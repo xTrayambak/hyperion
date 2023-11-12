@@ -4,6 +4,7 @@ pkgs.mkShell {
 		clang
 		gnumake
 		pkg-config
+		bear
 		
 		wayland
 		wayland-protocols

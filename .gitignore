@@ -1,5 +1,14 @@
 scowl
 *.o
+
+# configure
+Makefile
 xdg-shell-protocol.c
 xdg-shell-protocol.h
-Makefile
+
+# clangd
+.cache/
+compile_commands.json
+
+# nix-direnv
+.direnv/
