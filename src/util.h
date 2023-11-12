@@ -34,5 +34,6 @@ typedef struct {
 } Title;
 
 void mzero(void *, size_t);
+bool using_proprietary_drivers();
 
 #endif
