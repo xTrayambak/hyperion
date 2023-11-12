@@ -10,9 +10,11 @@
 static void
 button_press(struct wl_listener *listener, void *data)
 {
+	/*
 	uint32_t mods;
-	struct wlr_pointer_button_event *event;
 	struct wlr_keyboard *keyboard;
+	*/
+	struct wlr_pointer_button_event *event;
 
 	event = data;
 

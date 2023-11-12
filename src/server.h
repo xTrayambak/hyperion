@@ -94,4 +94,7 @@ typedef struct {
 	struct wlr_scene_rect *background;
 } Output;
 
+void server_init(Server *);
+void server_new_output(struct wl_listener *, void *);
+
 #endif

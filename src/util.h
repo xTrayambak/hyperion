@@ -2,6 +2,8 @@
  * Utility types and functions
  */
 
+#include <stddef.h>
+
 #include "wayland.h"
 
 #ifndef _UTIL_H_
@@ -30,5 +32,7 @@ typedef struct {
 	struct wlr_scene_buffer *buffer;
 	int original_width, current_width;
 } Title;
+
+void mzero(void *, size_t);
 
 #endif

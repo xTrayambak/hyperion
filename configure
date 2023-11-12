@@ -5,7 +5,6 @@
 set -e
 
 mkf=Makefile
-objs='main.o cursor.o'
 srcdir='src'
 include='include'
 objs='main.o cursor.o server.o util.o'
