@@ -1,7 +1,5 @@
-/*
- * Convenience header that provides all necessary
- * Wayland/related headers in one #include.
- */
+#ifndef WAYLAND_H_
+#define WAYLAND_H_
 
 #include <wayland-server-core.h>
 #include <wlr/backend.h>
@@ -17,16 +15,15 @@
 #include <wlr/types/wlr_pointer.h>
 #include <wlr/types/wlr_scene.h>
 #include <wlr/types/wlr_seat.h>
-#include <wlr/types/wlr_server_decoration.h>
+#include <wlr/types/wlr_subcompositor.h>
 #include <wlr/types/wlr_xcursor_manager.h>
-#include <wlr/types/wlr_xdg_decoration_v1.h>
 #include <wlr/types/wlr_xdg_shell.h>
-#include <wlr/types/wlr_idle.h>
+#include <wlr/types/wlr_layer_shell_v1.h>
 #include <wlr/util/log.h>
-
-#include <linux/input-event-codes.h>
 #include <xkbcommon/xkbcommon.h>
-#include <pango/pangocairo.h>
-#include <drm_fourcc.h>
 
-#include "xdg-shell-protocol.h"
+#include <wlr/xwayland.h>
+#include <xcb/xcb.h>
+#include <xcb/xcb_icccm.h>
+
+#endif

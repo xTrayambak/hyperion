@@ -1,9 +1,11 @@
-#include "server.h"
-#include "wayland.h"
+#ifndef CURSOR_H_
+#define CURSOR_H_
 
-#ifndef _CURSOR_H_
-#define _CURSOR_H_
+enum CursorMode {
+	SCOWL_CURSOR_PASSTHROUGH,
+	SCOWL_CURSOR_MOVE,
+	SCOWL_CURSOR_RESIZE,
+};
 
-void cursor_init(Server *);
 
 #endif

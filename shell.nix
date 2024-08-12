@@ -15,5 +15,7 @@ pkgs.mkShell {
 		pango.dev
 		pixman
 		systemd.dev
+		xorg.libxcb
+		xorg.xcbutilwm
 	];
 }

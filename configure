@@ -7,8 +7,8 @@ set -e
 mkf=Makefile
 srcdir='src'
 include='include'
-objs='main.o cursor.o server.o util.o'
-pkgs='wlroots wayland-server libdrm libsystemd pangocairo pixman-1 xkbcommon'
+objs='main.o server.o xwayland.o'
+pkgs='wlroots-0.18 xcb wayland-server libdrm libsystemd pangocairo pixman-1 xkbcommon'
 cflags="-pedantic -Wall -Wextra -I$include -DWLR_USE_UNSTABLE"
 makefile='
 INCLUDE   = '"$include"'
@@ -160,6 +160,8 @@ mkdir -p include
 	"$wl_protocols"/stable/xdg-shell/xdg-shell.xml "$include"/xdg-shell-protocol.h
 "$wl_scanner" private-code \
 	"$wl_protocols"/stable/xdg-shell/xdg-shell.xml "$include"/xdg-shell-protocol.c
+"$wl_scanner" enum-header \
+	"protocols/wlr-layer-shell-unstable-v1.xml" "$include/wlr-layer-shell-unstable-v1-protocol.h"
 
 # bear generates a compile_commands.json file that is consumed by clangd,
 # the clang LSP server. Necessary for LSP.
